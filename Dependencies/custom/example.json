@@ -1,0 +1,19 @@
+{
+  "incoming": {
+    "1234": "IncomingExample1",
+    "5678": "IncomingExample2"
+  },
+
+  "outgoing": {
+    "8765": "OutgoingExample1",
+    "4321": "OutgoingExample2"
+  },
+  
+  "jellycode": {
+    "IncomingExample1": "iiis",
+    "IncomingExample2": "i%(ii)",
+
+    "OutgoingExample1": "b|s",
+    "OutgoingExample2": "b?{0:i,1:iii,2:iiissss}"
+  }
+}
