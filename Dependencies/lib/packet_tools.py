@@ -162,25 +162,6 @@ def array_to_bin(array, host = None):
     
     return bytes(buff)
 
-"""
-def array_to_bin_old(array):
-    buff = b''
-    for elt in array:
-        if elt[0]=='}':
-                if elt[1][0] =='h':
-                    buff+=int(get_header(elt[1][2:])[0]).to_bytes(2,byteorder='big')
-                elif elt[1][0]=='i':buff+=int(elt[1][2:]).to_bytes(4,signed=True,byteorder='big')
-                elif elt[1][0]=='d':buff+=int(elt[1][2:]).to_bytes(2,byteorder='big')
-                elif elt[1][0]=='b':buff+=int(elt[1][2:]).to_bytes(1,byteorder='big')
-                #elif elt[1][0]=='f':buff+=int(elt[1][2:]).to_bytes(1,byteorder='big')
-                elif elt[1][0]=='s':
-                    s = unescape_string(elt[1][3:-1]).encode()
-                    buff+=len(s).to_bytes(2,byteorder='big')
-                    buff+=s
-        else:buff+=int(elt[1]).to_bytes(1,byteorder='big')
-    if array[0][1][0] == 'h':buff = len(buff).to_bytes(4,byteorder='big')+buff
-    return buff
-"""
 
 def raw_array_to_bin(array):
     buff = b''
