@@ -108,8 +108,11 @@ def handle_https(conn, url):
     remote_host, remote_port = url.decode().split(':')
     remote_port = int(remote_port)
     conn.send(b'HTTP/1.1 200 OK\r\n\r\n')
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     cert_path,key_path = generate_domain_certificate(remote_host)
-    client_sock = ssl.wrap_socket(conn,server_side=True, certfile=cert_path, keyfile=key_path)
+    context.check_hostname = False
+    context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+    client_sock = context.wrap_socket(conn, server_side=True)
     client_sock.settimeout(0.1)
     return handle_request(client_sock, remote_host, remote_port)
 
@@ -291,7 +294,7 @@ class Session:
             if opcode>2:
                 build = header + (mask if masked else b'') + (unpack_length_16.pack(length) if (opcode_and_length[1] & 0x7F) == 126 else (unpack_length_64.pack(length) if (opcode_and_length[1] & 0x7F) == 127 else b''))+data
                 self.server_queue.put(build) if from_client else self.client_queue.put(build)
-                #print(build, 'from_client' if from_client else 'from_server')
+                print(build, 'from_client' if from_client else 'from_server')
                 if opcode==8:break
                 else:continue
             if masked:
