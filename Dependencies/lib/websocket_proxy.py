@@ -294,7 +294,7 @@ class Session:
             if opcode>2:
                 build = header + (mask if masked else b'') + (unpack_length_16.pack(length) if (opcode_and_length[1] & 0x7F) == 126 else (unpack_length_64.pack(length) if (opcode_and_length[1] & 0x7F) == 127 else b''))+data
                 self.server_queue.put(build) if from_client else self.client_queue.put(build)
-                print(build, 'from_client' if from_client else 'from_server')
+                #print(build, 'from_client' if from_client else 'from_server')
                 if opcode==8:break
                 else:continue
             if masked:
