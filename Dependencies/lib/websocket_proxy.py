@@ -16,7 +16,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import hashes
 
 
-
 def clean_error():
     error_traceback = traceback.format_exc().splitlines()
     last_call_index = None
@@ -39,10 +38,10 @@ def generate_domain_certificate(domain_name):
 
     ca_key_path = path+'ca_key.pem'
     ca_cert_path = path+'ca_cert.pem'
-    
+
     with open(ca_key_path, "rb") as ca_key_file:
         ca_key = ca_key_file.read()
-    
+
     with open(ca_cert_path, "rb") as ca_cert_file:
         ca_cert = ca_cert_file.read()
 
@@ -50,16 +49,16 @@ def generate_domain_certificate(domain_name):
         ca_key, password=None
     )
     ca_certificate = x509.load_pem_x509_certificate(ca_cert)
-    
+
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048
     )
-    
+
     subject = issuer = x509.Name([
         x509.NameAttribute(x509.NameOID.COMMON_NAME, domain_name)
     ])
-    
+
     cert = x509.CertificateBuilder().subject_name(
         subject
     ).issuer_name(
@@ -78,7 +77,7 @@ def generate_domain_certificate(domain_name):
         ]),
         critical=False
     ).sign(ca_private_key, hashes.SHA256())
-    
+
 
 
     with open(f"{path+domain_name}_key.pem", "wb") as key_file:
@@ -87,7 +86,7 @@ def generate_domain_certificate(domain_name):
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption()
         ))
-    
+
     with open(f"{path+domain_name}_cert.pem", "wb") as cert_file:
         cert_file.write(cert.public_bytes(serialization.Encoding.PEM))
 
@@ -320,9 +319,9 @@ class Session:
             else:self.client_queue.put(b'\x00\x00')
 
     def send_to_server(self,data):
-        self.server.send(encode_websocket_data(data,128))
+        self.server_queue.put(encode_websocket_data(data,128))
     def send_to_client(self, data):
-        self.client.send(encode_websocket_data(data,0))
+        self.client_queue.put(encode_websocket_data(data,0))
 
 
 class message:
@@ -335,7 +334,7 @@ class message:
 
 
 def getSession(port):
-    
+
     bind_address = ('localhost', port)
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -346,5 +345,5 @@ def getSession(port):
     if on_connect: return Session(*on_connect)
 
 
-    
+
 
