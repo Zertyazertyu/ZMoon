@@ -39,7 +39,7 @@ def load_host_specs(host):
         loaded[host]={"incoming":{int(k):v for k,v in tmp["incoming"].items()},"outgoing":{int(k):v for k,v in tmp["outgoing"].items()},"jellycode":tmp["jellycode"]}
         loaded[host]['incoming_reverse']={v: k for k, v in loaded[host]['incoming'].items()}
         loaded[host]['outgoing_reverse']={v: k for k, v in loaded[host]['outgoing'].items()}
-    except:pass
+    except json.JSONDecodeError as e: print(f'Error while reading {host}.json: {e}')
 
 
 class HeadersNamer:
