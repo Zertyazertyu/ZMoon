@@ -61,7 +61,7 @@ class jellyStruct:
                     if tempshift:
                         buff.extend(struct.pack(temp,*self.data[i-tempshift:i]))
                         temp = '>'
-                        tempshift = 0   
+                        tempshift = 0
                     if structure=='s':
                         s = self.data[i].encode()
                         buff.extend(len(s).to_bytes(2,byteorder='big')+s)
@@ -149,7 +149,7 @@ class ZMOON_session:
                 except Exception:
                     print(f"Error during the installation of extension {file}:")
                     websocket_proxy.clean_error()
-       
+
         for thread in self.session.threads:thread.start()
         self.loop = threading.Thread(target=self.session.proceed_flow,args=(self.on_message,self.destruct))
         self.loop.start()
@@ -159,14 +159,14 @@ class ZMOON_session:
         is_file = False
         spec = importlib.util.spec_from_file_location(self.name+os.path.splitext(ext_name)[0],path+ext_name)
         if not spec:
+            if not os.path.exists(path+ext_name+"\\main.py"): return None
             is_file = True
-            try: spec = importlib.util.spec_from_file_location(self.name+os.path.splitext(ext_name)[0],path+ext_name+"\\main.py")
-            except: return
+            spec = importlib.util.spec_from_file_location(self.name+os.path.splitext(ext_name)[0],path+ext_name+"\\main.py")
         module = importlib.util.module_from_spec(spec)
         if update:
             for i in range(len(self.modules)):
                 if self.modules[i]['ext'].__name__== self.name+os.path.splitext(ext_name)[0]:
-                    if 'auto_reload' in self.modules[i].keys():  
+                    if 'auto_reload' in self.modules[i].keys():
                         if  not self.modules[i]['auto_reload']:return None
                     self.uninstall(ext_name[:3],True)
                     del self.modules[i]
@@ -225,7 +225,7 @@ class ZMOON_session:
         del self.functions
         for module in self.modules:
             if 'on_kill' in module.keys():module['on_kill']()
-        del self.modules 
+        del self.modules
 
     def send_to_client(self,data):
         if type(data)==str:data=array_to_bin(parse_string(data), self.session.host)
@@ -290,7 +290,7 @@ class ZMOON_session:
             for i in range(len(self.async_functions[header])):
                 if self.async_functions[header][i][0] == function:
                     del self.async_functions[header][i]
-                    return None 
+                    return None
 
     def get_jelly(self,header):
         return get_jelly(header,self.session.host)
@@ -305,7 +305,7 @@ class ZMOON_session:
         return parse_string(*args)
     @staticmethod
     def array_to_bin(*args):
-        return array_to_bin(*args) 
+        return array_to_bin(*args)
     @staticmethod
     def raw_array_to_bin(*args):
         return raw_array_to_bin(*args)
@@ -314,21 +314,48 @@ class ZMOON_session:
         return pack(*args)
     @staticmethod
     def D_Code(*args):
-        return D_code(*args)  
+        return D_code(*args)
     @staticmethod
     def flat(*args):
         return flat(*args)
 
 
-global compiled,sessions
-sessions = {}
-compiled = {}
-        
-PROXY_PORT= 8080
+def load_settings():
+    try:
+        with open('Dependencies/settings.json','r') as f: settings = json.load(f)
+    except: settings = dict()
+
+    if 'port' not in settings.keys(): settings['port'] = 8080
+    if 'proxy' not in settings.keys(): settings['proxy'] = None
+    elif not 'host' in settings['proxy'].keys() or not 'port' in settings['proxy'].keys() :  settings['proxy'] = None
+
+    return settings
+
+
+def print_starting_message():
+    print(f"Listening to 127.0.0.1:{settings['port']}. ", end="")
+    if settings['proxy'] == None: print("No proxy configured")
+    else: print(f"Proxy configured at {settings['proxy']['host']}:{settings['proxy']['port']}")
+
+global settings, compiled, sessions
+settings = load_settings()
+sessions = dict()
+compiled = dict()
+
+
+print_starting_message()
 
 while True:
-    s = websocket_proxy.getSession(PROXY_PORT)
-    if s==None:continue
+    try: s = websocket_proxy.getSession(settings['port'], settings['proxy'])
+    except KeyboardInterrupt :
+        settings = load_settings()
+        print('Connection reset.')
+        print_starting_message()
+        continue
+    except ConnectionRefusedError:
+        print('An error was occured with the specified proxy.')
+        continue
+    if s == None: continue
     port = s.client.getpeername()[1]
     sessions[port] = ZMOON_session(port,s)
     sessions = {key: value for key, value in sessions.items() if hasattr(value, 'session')}

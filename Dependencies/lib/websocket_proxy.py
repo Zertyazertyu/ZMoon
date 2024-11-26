@@ -94,15 +94,35 @@ def generate_domain_certificate(domain_name):
     return f"{path+domain_name}_cert.pem",f"{path+domain_name}_key.pem"
 
 
+def socks5_proxy(proxy_host, proxy_port, target_host, target_port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((proxy_host, proxy_port))
 
-def handle_client(conn):
+    s.sendall(b"\x05\x01\x00")
+    response = s.recv(2)
+    if response != b"\x05\x00":
+        raise ConnectionError("SOCKS5 handshake failed.")
+
+    request = b"\x05\x01\x00\x03"
+    target_host_encoded = target_host.encode()
+    request += bytes([len(target_host_encoded)]) + target_host_encoded
+    request += struct.pack("!H", target_port)
+    s.sendall(request)
+
+    response = s.recv(10)
+    if response[1] != 0x00:
+        raise ConnectionError(f"SOCKS5 connection failed: {response[1]}")
+    return s
+
+
+def handle_client(conn, proxy):
     request = conn.recv(4096)
     first_line = request.split(b'\r\n')[0]
     method, url, _ = first_line.split(b' ')
     if method == b'CONNECT':
-        return handle_https(conn, url)
+        return handle_https(conn, url, proxy)
 
-def handle_https(conn, url):
+def handle_https(conn, url, proxy):
     encoded=False
     remote_host, remote_port = url.decode().split(':')
     remote_port = int(remote_port)
@@ -113,14 +133,15 @@ def handle_https(conn, url):
     context.load_cert_chain(certfile=cert_path, keyfile=key_path)
     client_sock = context.wrap_socket(conn, server_side=True)
     client_sock.settimeout(0.1)
-    return handle_request(client_sock, remote_host, remote_port)
+    return handle_request(client_sock, remote_host, remote_port, proxy)
 
 
-def handle_request(client_sock, remote_host, remote_port):
+def handle_request(client_sock, remote_host, remote_port, proxy):
     try: request = client_sock.recv(4096)
     except:
         client_sock.close()
         return None
+
     headers = {}
     request_parts = request.split(b'\r\n\r\n')
     if len(request_parts) > 1:
@@ -128,32 +149,38 @@ def handle_request(client_sock, remote_host, remote_port):
         for line in header_lines:
             name, value = line.split(': ')
             headers[name] = value
-            if name == 'Sec-WebSocket-Extensions':encoded =True
+            if name == 'Sec-WebSocket-Extensions': encoded = True
+
+    if proxy: s = socks5_proxy(proxy['host'], proxy['port'], remote_host, remote_port)
+    else: s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = True
     ssl_context.verify_mode = ssl.CERT_REQUIRED
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock = ssl_context.wrap_socket(s, server_hostname=remote_host)
-    server_sock.connect((remote_host, remote_port))
+    if not proxy: server_sock.connect((remote_host, remote_port))
+
     if 'Upgrade' in headers and headers['Upgrade'] == 'websocket':
         path = request_parts[0].split(b' ')[1]
         if encoded:
             filtered_headers = [f"{name}: {value}" for name, value in headers.items() if name != 'Sec-WebSocket-Extensions']
             filtered_request = b'\r\n'.join([b'GET '+path+b' HTTP/1.1'] + [header.encode() for header in filtered_headers] + [b'', b''])
             server_sock.send(filtered_request)
-        else:
-            server_sock.send(request)
+        else: server_sock.send(request)
+
         server_sock.settimeout(1.0)
         response = b''
         try:
             while 1:
                 tmp = server_sock.read()
-                response+=tmp
+                response += tmp
                 if tmp == b'': break
-        except:pass
+        except: pass
+
         server_sock.settimeout(None)
         client_sock.settimeout(None)
-        return *handle_websockets(server_sock,client_sock, headers['Sec-WebSocket-Key']),remote_host,encoded
+        return *handle_websockets(server_sock, client_sock, headers['Sec-WebSocket-Key']), remote_host, encoded
+
     else:
         server_sock.settimeout(0.5)
         server_sock.send(request)
@@ -161,11 +188,11 @@ def handle_request(client_sock, remote_host, remote_port):
         while True:
             try: tmp = server_sock.recv(4096)
             except: break
-            response+=tmp
-            if not tmp:break
+            response += tmp
+            if not tmp: break
         client_sock.sendall(response)
         server_sock.close()
-        a = handle_request(client_sock, remote_host, remote_port)
+        a = handle_request(client_sock, remote_host, remote_port, proxy)
         return a
 
 
@@ -332,18 +359,17 @@ class message:
     def kill(self):
         self.killed = True
 
-
-def getSession(port):
-
+def getSession(port, proxy):
     bind_address = ('localhost', port)
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind(bind_address)
     server_sock.listen()
-    conn, addr = server_sock.accept()
-    on_connect = handle_client(conn)
+    server_sock.settimeout(1.0)
+    while 1:
+        try:
+            conn, addr = server_sock.accept()
+            break
+        except socket.timeout: continue
+    on_connect = handle_client(conn, proxy)
     if on_connect: return Session(*on_connect)
-
-
-
-
