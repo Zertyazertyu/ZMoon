@@ -40,6 +40,8 @@ def load_host_specs(host):
         loaded[host]['incoming_reverse']={v: k for k, v in loaded[host]['incoming'].items()}
         loaded[host]['outgoing_reverse']={v: k for k, v in loaded[host]['outgoing'].items()}
     except json.JSONDecodeError as e: print(f'Error while reading {host}.json: {e}')
+    except: pass
+
 
 
 class HeadersNamer:
@@ -120,7 +122,7 @@ def parse_string(str):
                 if str[ptr]=="\\":nSlash+=1
                 else:nSlash=0
     return splitted
-    
+
 
 TYPE_MAPPING = {
     'h': ('H', lambda x: int(get_header(x[0], x[1])[0])),
@@ -135,7 +137,7 @@ def array_to_bin(array, host = None):
     buff = bytearray()
     temp = '>'
     tempvals = []
-    
+
     for elt in array:
         if elt[0] == '}':
             if elt[1][0] in TYPE_MAPPING:
@@ -153,13 +155,13 @@ def array_to_bin(array, host = None):
         else:
             tempvals.append(int(elt[1]))
             temp+='B'
-    
+
     if len(temp) > 1:
         buff.extend(struct.pack(temp, *tempvals))
-    
+
     if array[0][1][0] == 'h':
         buff = len(buff).to_bytes(4, byteorder='big') + buff
-    
+
     return bytes(buff)
 
 
@@ -191,7 +193,7 @@ def D_Code(jelly,compile=True):
     ifSizers = False
     ifTarkers = False
     code=""
-    
+
     if '@' in jelly:
         jelly_b = jelly
         par = 0
