@@ -75,7 +75,7 @@ def generate_domain_certificate(domain_name):
         x509.SubjectAlternativeName([
             x509.DNSName(domain_name)
         ]),
-        critical=False
+        critical=True
     ).sign(ca_private_key, hashes.SHA256())
 
 
