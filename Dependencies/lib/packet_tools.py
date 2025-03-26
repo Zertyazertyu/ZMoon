@@ -33,7 +33,7 @@ def get_jelly(header_name,host=None):
 def load_host_specs(host):
     global loaded
     try:
-        f=open(os.path.dirname(os.path.dirname(__file__))+f"/custom/{host}.json")
+        f=open(os.path.dirname(os.path.dirname(__file__))+f"/custom/structures/{host}.json")
         tmp=json.load(f)
         f.close()
         loaded[host]={"incoming":{int(k):v for k,v in tmp["incoming"].items()},"outgoing":{int(k):v for k,v in tmp["outgoing"].items()},"jellycode":tmp["jellycode"]}
