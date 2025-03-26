@@ -6,7 +6,7 @@ import hashlib
 import struct
 import os
 import queue
-import sys
+import importlib
 import datetime
 import traceback
 
@@ -115,6 +115,8 @@ def socks5_proxy(proxy_host, proxy_port, target_host, target_port):
     return s
 
 
+
+
 def handle_client(conn, proxy):
     request = conn.recv(4096)
     first_line = request.split(b'\r\n')[0]
@@ -209,6 +211,17 @@ def handle_websockets(server,client, key):
     client.send(response)
     return server,client
 
+def load_cipher(host):
+    required_methods = ("decrypt_client", "encrypt_client", "decrypt_server", "encrypt_server")
+    if 1:
+        spec = importlib.util.spec_from_file_location(f"{host}_cipher", f'Dependencies/custom/encryption/{host}.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        if isinstance(getattr(module, "Cipher"), type):
+                cipher = getattr(module, "Cipher")(host)
+                if all(hasattr(cipher, method) and callable(getattr(cipher, method)) for method in required_methods):
+                    return cipher
+    else: return None
 
 def encode_websocket_data(data: bytes, encode: int = 128) -> bytes:
     data_length:int = len(data)
@@ -250,6 +263,7 @@ def split_packets(data:bytes) -> list:
 class Session:
     def __init__(self,server,client,host,compressed=False):
         self.host=host
+        self.cipher = load_cipher(host)
         self.alive=True
         self.compressed = compressed
         self.server = server
@@ -270,11 +284,16 @@ class Session:
         self.callback = callback
         while self.alive:
             p = self.flow.get()
-            try:on_message(p)
+            try: on_message(p)
             except Exception:
                 if self.alive:clean_error()
             if not p.killed:
-                if p.from_client:self.server_queue.put(encode_websocket_data(p.content,128))
+                if self.cipher:
+                    if p.from_client: p.content = self.cipher.encrypt_server(p.content)
+                    else: p.content = self.cipher.encrypt_client(p.content)
+
+                if p.from_client:
+                    self.server_queue.put(encode_websocket_data(p.content,128))
                 else:
                     self.client_queue.put(encode_websocket_data(p.content,0))
 
@@ -285,6 +304,7 @@ class Session:
         else:
             q=self.server_queue
             target=self.server
+
         while self.alive:
             target.sendall(q.get(block=True))
 
@@ -296,6 +316,11 @@ class Session:
         unpack_length_16 = struct.Struct('!H')
         unpack_length_64 = struct.Struct('!Q')
         decompress = self.compressed and not from_client
+        if self.cipher:
+            if from_client: c = self.cipher.decrypt_client
+            else: c = self.cipher.decrypt_server
+        else: c = None
+
         while self.alive:
             header=None
             header = source.read(2)
@@ -333,6 +358,7 @@ class Session:
             message_buffer += data
 
             if final and message_buffer:
+                if c: message_buffer = c(message_buffer)
                 if decompress:
                     for depacked in split_packets(message_buffer):#for depacked in split_packets(zlib.decompress(message_buffer, -zlib.MAX_WBITS)):
                         self.flow.put(message(from_client,depacked))
@@ -346,10 +372,11 @@ class Session:
             else:self.client_queue.put(b'\x00\x00')
 
     def send_to_server(self,data):
+        if self.cipher: data = self.cipher.encrypt_server(data)
         self.server_queue.put(encode_websocket_data(data,128))
     def send_to_client(self, data):
+        if self.cipher: data = self.cipher.encrypt_client(data)
         self.client_queue.put(encode_websocket_data(data,0))
-
 
 class message:
     def __init__(self,from_client,content):

@@ -4,9 +4,6 @@ import Dependencies.lib.websocket_proxy as websocket_proxy
 from Dependencies.lib.packet_tools import *
 
 import os
-import time
-import sys
-import traceback
 import json
 import struct
 
@@ -95,10 +92,8 @@ class Packet:
             self.raw = bitArray
             self.self_generated = False
             self.header_name = get_name(self.header, self.incoming, host)
-            if self.lenght==2:self.struct=jellyStruct([],[],[(6,6),[]],self)
-            else:
-                if 1:self.struct = jellyStruct(*self.d_read(get_jelly(self.header_name,host)),self)
-                else:self.struct=jellyStruct([],[],[(6,6),[]],self)
+            if self.lenght==2: self.struct=jellyStruct([],[],[(6,6),[]],self)
+            else: self.struct = jellyStruct(*self.d_read(get_jelly(self.header_name,host)),self)
         else:print('error packet',pack(bitArray[:4]),len(bitArray),pack(bitArray[4:6]),bitArray)
 
     def __len__(self):return len(self.struct.data)
@@ -341,7 +336,6 @@ global settings, compiled, sessions
 settings = load_settings()
 sessions = dict()
 compiled = dict()
-
 
 print_starting_message()
 
