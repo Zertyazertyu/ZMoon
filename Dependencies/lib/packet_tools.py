@@ -339,6 +339,8 @@ def D_Code(jelly,compile=True):
     if ifTarkers:head+="\ttarkers=[]\n\ttarkIndex=0\n"
     code= head+code+"\treturn tmp,structure,[(start,d.pointer),mapping]\n"
     if not compile:return code
-    exec(code,locals())
-    return locals()['f']
+    namespace = {}
+    exec(code, globals(), namespace)
+    return namespace['f']   
+
 
