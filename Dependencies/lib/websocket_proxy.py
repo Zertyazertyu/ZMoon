@@ -117,14 +117,14 @@ def socks5_proxy(proxy_host, proxy_port, target_host, target_port):
 
 
 
-def handle_client(conn, proxy):
+def handle_client(conn, settings):
     request = conn.recv(4096)
     first_line = request.split(b'\r\n')[0]
     method, url, _ = first_line.split(b' ')
     if method == b'CONNECT':
-        return handle_https(conn, url, proxy)
+        return handle_https(conn, url, settings)
 
-def handle_https(conn, url, proxy):
+def handle_https(conn, url, settings):
     encoded=False
     remote_host, remote_port = url.decode().split(':')
     remote_port = int(remote_port)
@@ -135,10 +135,10 @@ def handle_https(conn, url, proxy):
     context.load_cert_chain(certfile=cert_path, keyfile=key_path)
     client_sock = context.wrap_socket(conn, server_side=True)
     client_sock.settimeout(0.1)
-    return handle_request(client_sock, remote_host, remote_port, proxy)
+    return handle_request(client_sock, remote_host, remote_port, settings)
 
 
-def handle_request(client_sock, remote_host, remote_port, proxy):
+def handle_request(client_sock, remote_host, remote_port, settings):
     try: request = client_sock.recv(4096)
     except:
         client_sock.close()
@@ -153,12 +153,15 @@ def handle_request(client_sock, remote_host, remote_port, proxy):
             headers[name] = value
             if name == 'Sec-WebSocket-Extensions': encoded = True
 
+    proxy = settings['proxy']
     if proxy: s = socks5_proxy(proxy['host'], proxy['port'], remote_host, remote_port)
     else: s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = True
-    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    if settings['bypass.SSL.check']: ssl_context = ssl._create_unverified_context()
+    else: 
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = True
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
     server_sock = ssl_context.wrap_socket(s, server_hostname=remote_host)
     if not proxy: server_sock.connect((remote_host, remote_port))
 
@@ -386,8 +389,8 @@ class message:
     def kill(self):
         self.killed = True
 
-def getSession(port, proxy):
-    bind_address = ('localhost', port)
+def getSession(settings):
+    bind_address = ('localhost', settings['port'])
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind(bind_address)
@@ -398,5 +401,5 @@ def getSession(port, proxy):
             conn, addr = server_sock.accept()
             break
         except socket.timeout: continue
-    on_connect = handle_client(conn, proxy)
+    on_connect = handle_client(conn, settings)
     if on_connect: return Session(*on_connect)

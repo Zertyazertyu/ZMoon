@@ -320,6 +320,7 @@ def load_settings():
         with open('Dependencies/settings.json','r') as f: settings = json.load(f)
     except: settings = dict()
 
+    if "bypass.SSL.check" not in settings.keys(): settings['bypass.SSL.check'] =  False
     if 'port' not in settings.keys(): settings['port'] = 8080
     if 'proxy' not in settings.keys(): settings['proxy'] = None
     elif not 'host' in settings['proxy'].keys() or not 'port' in settings['proxy'].keys() :  settings['proxy'] = None
@@ -340,7 +341,7 @@ compiled = dict()
 print_starting_message()
 
 while True:
-    try: s = websocket_proxy.getSession(settings['port'], settings['proxy'])
+    try: s = websocket_proxy.getSession(settings)
     except KeyboardInterrupt :
         settings = load_settings()
         print('Connection reset.')
