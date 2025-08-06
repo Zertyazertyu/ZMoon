@@ -216,7 +216,7 @@ def handle_websockets(server,client, key):
 
 def load_cipher(host):
     required_methods = ("decrypt_client", "encrypt_client", "decrypt_server", "encrypt_server")
-    if 1:
+    if os.path.isfile(f'Dependencies/custom/encryption/{host}.py'):
         spec = importlib.util.spec_from_file_location(f"{host}_cipher", f'Dependencies/custom/encryption/{host}.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -402,4 +402,5 @@ def getSession(settings):
             break
         except socket.timeout: continue
     on_connect = handle_client(conn, settings)
+
     if on_connect: return Session(*on_connect)
