@@ -55,7 +55,7 @@ def generate_domain_certificate(domain_name):
         key_size=2048
     )
 
-    subject = issuer = x509.Name([
+    subject = x509.Name([
         x509.NameAttribute(x509.NameOID.COMMON_NAME, domain_name)
     ])
 
@@ -197,7 +197,7 @@ def handle_request(client_sock, remote_host, remote_port, settings):
             if not tmp: break
         client_sock.sendall(response)
         server_sock.close()
-        a = handle_request(client_sock, remote_host, remote_port, proxy)
+        a = handle_request(client_sock, remote_host, remote_port, settings)
         return a
 
 
@@ -404,3 +404,4 @@ def getSession(settings):
     on_connect = handle_client(conn, settings)
 
     if on_connect: return Session(*on_connect)
+
